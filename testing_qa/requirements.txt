@@ -1,0 +1,44 @@
+# Core Testing Framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-timeout==2.2.0
+pytest-html==3.2.0
+pytest-json-report==1.5.0
+
+# AWS SDK
+boto3==1.29.7
+botocore==1.32.7
+
+# HTTP Client
+requests==2.31.0
+httpx==0.25.1
+
+# Async/Queue Testing
+aiobotocore==2.7.0
+
+# Data Management
+pydantic==2.5.2
+pyyaml==6.0.1
+python-dotenv==1.0.0
+
+# Test Data
+faker==20.1.0
+
+# Logging & Reporting
+structlog==23.2.0
+colorlog==6.8.0
+
+# Utilities
+tenacity==8.2.3  # Retry logic
+python-dateutil==2.8.2
+
+# API Simulation
+flask==3.0.0
+flask-cors==4.0.0
+
+# JSON Schema Validation
+jsonschema==4.20.0
+
+# Environment Management
+dynaconf==3.2.4
+

@@ -1,0 +1,7 @@
+[tool.dagster]
+python_version = "3.9"
+
+[tool.dagster.project]
+name = "retail-data-pipeline"
+package_name = "dagster"
+

@@ -1,0 +1,51 @@
+{
+  "name": "qa",
+  "description": "QA environment",
+  "api_gateway": {
+    "base_url": "https://api-qa.example.com",
+    "api_key": "${API_KEY_QA}",
+    "timeout": 30,
+    "retry_attempts": 3
+  },
+  "lambda": {
+    "functions": {
+      "processOrder": "arn:aws:lambda:us-east-1:123456789:function:processOrder-qa",
+      "sendNotification": "arn:aws:lambda:us-east-1:123456789:function:sendNotification-qa"
+    },
+    "region": "us-east-1"
+  },
+  "queues": {
+    "orderQueue": "https://sqs.us-east-1.amazonaws.com/123456789/order-queue-qa",
+    "notificationQueue": "https://sqs.us-east-1.amazonaws.com/123456789/notification-queue-qa"
+  },
+  "event_bus": {
+    "name": "test-event-bus-qa",
+    "region": "us-east-1"
+  },
+  "database": {
+    "endpoint": "test-db-qa.cluster-xyz.us-east-1.rds.amazonaws.com",
+    "port": 5432,
+    "name": "testdb_qa",
+    "use_mock": false
+  },
+  "downstream_services": {
+    "payment_service": {
+      "base_url": "https://payment-service-qa.example.com",
+      "use_simulation": false
+    },
+    "inventory_service": {
+      "base_url": "https://inventory-service-qa.example.com",
+      "use_simulation": false
+    }
+  },
+  "async": {
+    "poll_interval": 2,
+    "max_wait_time": 60,
+    "retry_delay": 1
+  },
+  "aws": {
+    "region": "us-east-1",
+    "profile": "qa"
+  }
+}
+

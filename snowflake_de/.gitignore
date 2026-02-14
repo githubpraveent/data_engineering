@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+
+# Airflow
+airflow.cfg
+airflow.db
+logs/
+*.log
+
+# Environment variables
+.env
+.env.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Snowflake
+snowflake_connection.json
+snowflake_config.json
+*.pem
+*.key
+
+# Secrets
+secrets/
+*.secret
+*.key
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Test outputs
+test_outputs/
+*.csv
+*.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+

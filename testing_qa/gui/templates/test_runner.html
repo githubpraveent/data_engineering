@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Runner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/test-runner.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-play"></i> Test Runner</h1>
+            <nav>
+                <a href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="/test-builder"><i class="fas fa-wrench"></i> Test Builder</a>
+                <a href="/test-runner" class="active"><i class="fas fa-play"></i> Test Runner</a>
+            </nav>
+        </header>
+
+        <main>
+            <div class="runner-layout">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-list"></i> Select Tests to Run</h2>
+                        <div class="runner-actions">
+                            <button class="btn btn-primary" onclick="runSelectedTests()">
+                                <i class="fas fa-play"></i> Run Selected
+                            </button>
+                            <button class="btn btn-secondary" onclick="selectAll()">
+                                <i class="fas fa-check-square"></i> Select All
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="tests-selector" class="tests-selector">
+                            <div class="loading">Loading tests...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-terminal"></i> Test Execution</h2>
+                        <button class="btn btn-small" onclick="clearOutput()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="execution-output" class="execution-output">
+                            <div class="empty-state">
+                                <i class="fas fa-play-circle fa-3x"></i>
+                                <p>Select tests and click "Run Selected" to start execution</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-chart-bar"></i> Results Summary</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="results-summary" class="results-summary">
+                            <div class="empty-state">
+                                <p>No tests executed yet</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/test-runner.js') }}"></script>
+</body>
+</html>
+
+

@@ -1,0 +1,45 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - python3 --version
+      - pip3 install --upgrade pip
+      - pip3 install -r requirements.txt
+      - |
+        if [ -f "config/environments/${TEST_ENV}.example.json" ]; then
+          cp config/environments/${TEST_ENV}.example.json config/environments/${TEST_ENV}.json
+        fi
+  build:
+    commands:
+      - echo Running tests...
+      - |
+        if [ "$TEST_TYPE" = "unit" ]; then
+          pytest tests/unit/ -v --env=${TEST_ENV} -m unit
+        elif [ "$TEST_TYPE" = "integration" ]; then
+          pytest tests/integration/ -v --env=${TEST_ENV} -m integration
+        elif [ "$TEST_TYPE" = "e2e" ]; then
+          pytest tests/e2e/ -v --env=${TEST_ENV} -m e2e
+        else
+          pytest tests/ -v --env=${TEST_ENV}
+        fi
+  post_build:
+    commands:
+      - echo Test execution completed
+      - |
+        if [ -d "test-reports" ]; then
+          echo Uploading test reports...
+        fi
+
+reports:
+  test-report:
+    files:
+      - 'test-reports/**/*'
+    base-directory: 'test-reports'
+
+artifacts:
+  files:
+    - 'test-reports/**/*'
+

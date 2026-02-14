@@ -1,0 +1,49 @@
+version: 0.2
+
+stages:
+  - name: Source
+    actions:
+      - name: SourceAction
+        actionTypeId:
+          category: Source
+          owner: AWS
+          provider: S3
+          version: '1'
+        outputArtifacts:
+          - name: SourceOutput
+  
+  - name: Test
+    actions:
+      - name: UnitTests
+        actionTypeId:
+          category: Test
+          owner: AWS
+          provider: CodeBuild
+          version: '1'
+        configuration:
+          ProjectName: e2e-testing-unit-tests
+        inputArtifacts:
+          - name: SourceOutput
+      
+      - name: IntegrationTests
+        actionTypeId:
+          category: Test
+          owner: AWS
+          provider: CodeBuild
+          version: '1'
+        configuration:
+          ProjectName: e2e-testing-integration-tests
+        inputArtifacts:
+          - name: SourceOutput
+      
+      - name: E2ETests
+        actionTypeId:
+          category: Test
+          owner: AWS
+          provider: CodeBuild
+          version: '1'
+        configuration:
+          ProjectName: e2e-testing-e2e-tests
+        inputArtifacts:
+          - name: SourceOutput
+

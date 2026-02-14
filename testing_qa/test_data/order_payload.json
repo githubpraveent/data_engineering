@@ -1,0 +1,24 @@
+{
+  "orderId": "${order_id}",
+  "customerId": "${customer_id}",
+  "items": [
+    {
+      "productId": "prod-123",
+      "quantity": 2,
+      "price": 50.00
+    }
+  ],
+  "totalAmount": "${amount}",
+  "shippingAddress": {
+    "street": "123 Test St",
+    "city": "Test City",
+    "state": "TS",
+    "zipCode": "12345"
+  },
+  "paymentMethod": "credit_card",
+  "metadata": {
+    "source": "test",
+    "testRun": true
+  }
+}
+

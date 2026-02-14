@@ -1,0 +1,144 @@
+name: Deploy Data Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - qa
+      - dev
+  pull_request:
+    branches:
+      - main
+      - qa
+
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install flake8 black isort
+      
+      - name: Lint Python files
+        run: |
+          flake8 airflow/dags/ --max-line-length=120 --exclude=__pycache__
+          black --check airflow/dags/
+          isort --check-only airflow/dags/
+  
+  validate-sql:
+    name: Validate SQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install SQLFluff
+        run: |
+          pip install sqlfluff
+      
+      - name: Lint SQL files
+        run: |
+          sqlfluff lint snowflake/sql/ --dialect snowflake || true
+  
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install -r airflow/config/requirements.txt
+          pip install pytest pytest-cov
+      
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --cov=airflow --cov-report=xml || true
+  
+  deploy-dev:
+    name: Deploy to Development
+    needs: [lint, validate-sql]
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy Airflow DAGs
+        run: |
+          echo "Deploying Airflow DAGs to development environment"
+          # Add your deployment script here
+          # Example: rsync or scp to Airflow server
+      
+      - name: Deploy Snowflake SQL
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT_DEV }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER_DEV }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD_DEV }}
+          SNOWFLAKE_WAREHOUSE: WH_TRANS
+          SNOWFLAKE_DATABASE: DEV_RAW
+        run: |
+          echo "Deploying Snowflake SQL scripts to development"
+          # Add your Snowflake deployment script here
+  
+  deploy-qa:
+    name: Deploy to QA
+    needs: [lint, validate-sql, test]
+    if: github.ref == 'refs/heads/qa'
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy Airflow DAGs
+        run: |
+          echo "Deploying Airflow DAGs to QA environment"
+      
+      - name: Deploy Snowflake SQL
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT_QA }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER_QA }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD_QA }}
+        run: |
+          echo "Deploying Snowflake SQL scripts to QA"
+  
+  deploy-prod:
+    name: Deploy to Production
+    needs: [lint, validate-sql, test]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Confirm production deployment
+        run: |
+          echo "Deploying to production requires manual approval"
+      
+      - name: Deploy Airflow DAGs
+        run: |
+          echo "Deploying Airflow DAGs to production environment"
+      
+      - name: Deploy Snowflake SQL
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT_PROD }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER_PROD }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD_PROD }}
+        run: |
+          echo "Deploying Snowflake SQL scripts to production"
+

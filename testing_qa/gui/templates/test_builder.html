@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Builder - No Code Automation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/test-builder.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-wrench"></i> Visual Test Builder</h1>
+            <nav>
+                <a href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="/test-builder" class="active"><i class="fas fa-wrench"></i> Test Builder</a>
+                <a href="/test-runner"><i class="fas fa-play"></i> Test Runner</a>
+            </nav>
+        </header>
+
+        <main class="test-builder">
+            <div class="builder-layout">
+                <!-- Left Panel: Test Properties -->
+                <div class="panel-left">
+                    <div class="card">
+                        <h2><i class="fas fa-info-circle"></i> Test Properties</h2>
+                        <div class="form-group">
+                            <label>Test Name *</label>
+                            <input type="text" id="test-name" placeholder="e.g., Create Order Flow" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="test-description" rows="3" placeholder="Describe what this test does..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Environment *</label>
+                            <select id="test-environment" required>
+                                <option value="dev">DEV</option>
+                                <option value="qa">QA</option>
+                                <option value="prod">PROD</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="saveTest()">
+                                <i class="fas fa-save"></i> Save Test
+                            </button>
+                            <button class="btn btn-secondary" onclick="loadTest()">
+                                <i class="fas fa-folder-open"></i> Load Test
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step Templates -->
+                    <div class="card">
+                        <h2><i class="fas fa-puzzle-piece"></i> Add Step</h2>
+                        <div class="step-templates">
+                            <button class="step-template" onclick="addStep('api_call')">
+                                <i class="fas fa-globe"></i> API Call
+                            </button>
+                            <button class="step-template" onclick="addStep('wait')">
+                                <i class="fas fa-clock"></i> Wait
+                            </button>
+                            <button class="step-template" onclick="addStep('poll')">
+                                <i class="fas fa-sync"></i> Poll/Verify
+                            </button>
+                            <button class="step-template" onclick="addStep('validation')">
+                                <i class="fas fa-check-circle"></i> Validation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center Panel: Test Steps -->
+                <div class="panel-center">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2><i class="fas fa-list-ol"></i> Test Steps</h2>
+                            <span class="step-count" id="step-count">0 steps</span>
+                        </div>
+                        <div class="card-body">
+                            <div id="steps-container" class="steps-container">
+                                <div class="empty-state">
+                                    <i class="fas fa-mouse-pointer fa-3x"></i>
+                                    <p>Click "Add Step" to start building your test</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Step Configuration -->
+                <div class="panel-right" id="step-config-panel" style="display: none;">
+                    <div class="card">
+                        <h2><i class="fas fa-cog"></i> Step Configuration</h2>
+                        <div id="step-config-content">
+                            <!-- Dynamically populated based on step type -->
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="saveStepConfig()">
+                                <i class="fas fa-check"></i> Apply
+                            </button>
+                            <button class="btn btn-secondary" onclick="cancelStepConfig()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Step Configuration Templates (hidden) -->
+    <div id="step-templates" style="display: none;">
+        <!-- API Call Template -->
+        <div data-step-type="api_call">
+            <div class="form-group">
+                <label>Step Name</label>
+                <input type="text" class="step-name" placeholder="e.g., Create Order">
+            </div>
+            <div class="form-group">
+                <label>HTTP Method *</label>
+                <select class="step-method" required>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="PATCH">PATCH</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Endpoint *</label>
+                <input type="text" class="step-endpoint" placeholder="/orders" required>
+            </div>
+            <div class="form-group">
+                <label>Request Body (JSON)</label>
+                <textarea class="step-body" rows="6" placeholder='{"key": "value"}'></textarea>
+            </div>
+            <div class="form-group">
+                <label>Expected Status Code</label>
+                <input type="number" class="step-status" value="200">
+            </div>
+            <div class="form-group">
+                <label>Validations</label>
+                <div id="validations-list"></div>
+                <button type="button" class="btn btn-small" onclick="addValidation()">
+                    <i class="fas fa-plus"></i> Add Validation
+                </button>
+            </div>
+        </div>
+
+        <!-- Wait Template -->
+        <div data-step-type="wait">
+            <div class="form-group">
+                <label>Step Name</label>
+                <input type="text" class="step-name" placeholder="e.g., Wait for Processing">
+            </div>
+            <div class="form-group">
+                <label>Duration (seconds) *</label>
+                <input type="number" class="step-duration" value="5" min="1" required>
+            </div>
+        </div>
+
+        <!-- Poll Template -->
+        <div data-step-type="poll">
+            <div class="form-group">
+                <label>Step Name</label>
+                <input type="text" class="step-name" placeholder="e.g., Wait for Order Status">
+            </div>
+            <div class="form-group">
+                <label>Poll Condition</label>
+                <textarea class="step-condition" rows="4" placeholder="Describe what to check..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Max Wait Time (seconds)</label>
+                <input type="number" class="step-max-wait" value="60" min="1">
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/test-builder.js') }}"></script>
+</body>
+</html>
+
+

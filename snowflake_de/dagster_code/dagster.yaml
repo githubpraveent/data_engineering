@@ -1,0 +1,40 @@
+# Dagster configuration file
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 10
+
+run_launcher:
+  module: dagster._core.launcher
+  class: DefaultRunLauncher
+
+compute_logs:
+  module: dagster.core.storage.noop_compute_log_manager
+  class: NoOpComputeLogManager
+
+local_artifact_storage:
+  module: dagster.core.storage.file_manager
+  class: LocalFileManager
+  config:
+    base_dir: /tmp/dagster-storage
+
+schedule_storage:
+  module: dagster.core.storage.sqlite_storage
+  class: SqliteScheduleStorage
+  config:
+    base_dir: /tmp/dagster-storage
+
+run_storage:
+  module: dagster.core.storage.sqlite_storage
+  class: SqliteRunStorage
+  config:
+    base_dir: /tmp/dagster-storage
+
+event_log_storage:
+  module: dagster.core.storage.sqlite_storage
+  class: SqliteEventLogStorage
+  config:
+    base_dir: /tmp/dagster-storage
+

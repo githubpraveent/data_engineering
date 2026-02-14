@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2E Testing Framework - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-flask"></i> Serverless E2E Testing Framework</h1>
+            <nav>
+                <a href="/" class="active"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="/test-builder"><i class="fas fa-wrench"></i> Test Builder</a>
+                <a href="/test-runner"><i class="fas fa-play"></i> Test Runner</a>
+            </nav>
+        </header>
+
+        <main>
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-list"></i> My Tests</h2>
+                        <button class="btn btn-primary" onclick="location.href='/test-builder'">
+                            <i class="fas fa-plus"></i> Create New Test
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="tests-list" class="tests-list">
+                            <div class="loading">Loading tests...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-chart-line"></i> Test Statistics</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="total-tests">0</div>
+                                <div class="stat-label">Total Tests</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="passed-tests">0</div>
+                                <div class="stat-label">Passed</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="failed-tests">0</div>
+                                <div class="stat-label">Failed</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-server"></i> Environments</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="environments-list" class="environments-list">
+                            <div class="loading">Loading environments...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
+
+

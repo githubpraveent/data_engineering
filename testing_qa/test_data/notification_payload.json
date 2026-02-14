@@ -1,0 +1,10 @@
+{
+  "message": "${message}",
+  "recipient": "test@example.com",
+  "type": "order_confirmation",
+  "metadata": {
+    "orderId": "test-order-123",
+    "timestamp": "2024-01-01T00:00:00Z"
+  }
+}
+

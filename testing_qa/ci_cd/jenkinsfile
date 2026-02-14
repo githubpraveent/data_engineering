@@ -1,0 +1,129 @@
+pipeline {
+    agent any
+    
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'qa', 'prod'],
+            description: 'Environment to test'
+        )
+        booleanParam(
+            name: 'RUN_UNIT_TESTS',
+            defaultValue: true,
+            description: 'Run unit tests'
+        )
+        booleanParam(
+            name: 'RUN_INTEGRATION_TESTS',
+            defaultValue: true,
+            description: 'Run integration tests'
+        )
+        booleanParam(
+            name: 'RUN_E2E_TESTS',
+            defaultValue: false,
+            description: 'Run E2E tests'
+        )
+    }
+    
+    environment {
+        TEST_ENV = "${params.ENVIRONMENT}"
+        AWS_REGION = 'us-east-1'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Setup') {
+            steps {
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
+            }
+        }
+        
+        stage('Configure Environment') {
+            steps {
+                sh '''
+                    cp config/environments/${TEST_ENV}.example.json config/environments/${TEST_ENV}.json
+                    # Environment variables should be set in Jenkins credentials
+                '''
+            }
+        }
+        
+        stage('Unit Tests') {
+            when {
+                expression { params.RUN_UNIT_TESTS == true }
+            }
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    pytest tests/unit/ -v --env=${TEST_ENV} -m unit --junitxml=test-reports/unit-tests.xml
+                '''
+            }
+            post {
+                always {
+                    junit 'test-reports/unit-tests.xml'
+                }
+            }
+        }
+        
+        stage('Integration Tests') {
+            when {
+                expression { params.RUN_INTEGRATION_TESTS == true }
+            }
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    pytest tests/integration/ -v --env=${TEST_ENV} -m integration --junitxml=test-reports/integration-tests.xml
+                '''
+            }
+            post {
+                always {
+                    junit 'test-reports/integration-tests.xml'
+                }
+            }
+        }
+        
+        stage('E2E Tests') {
+            when {
+                expression { params.RUN_E2E_TESTS == true }
+            }
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    pytest tests/e2e/ -v --env=${TEST_ENV} -m e2e --junitxml=test-reports/e2e-tests.xml
+                '''
+            }
+            post {
+                always {
+                    junit 'test-reports/e2e-tests.xml'
+                    publishHTML([
+                        reportDir: 'test-reports',
+                        reportFiles: 'report.html',
+                        reportName: 'Test Report'
+                    ])
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            archiveArtifacts artifacts: 'test-reports/**/*', fingerprint: true
+            cleanWs()
+        }
+        success {
+            echo 'All tests passed!'
+        }
+        failure {
+            echo 'Tests failed!'
+        }
+    }
+}
+
