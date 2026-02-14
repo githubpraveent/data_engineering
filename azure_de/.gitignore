@@ -1,0 +1,61 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.tfplan
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+secrets/
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Airflow
+airflow.cfg
+airflow.db
+airflow-webserver.pid
+
+# Databricks
+.databricks/
+
+# Test results
+.pytest_cache/
+.coverage
+htmlcov/
+test-results/
+
+# Temporary files
+*.tmp
+*.temp
+

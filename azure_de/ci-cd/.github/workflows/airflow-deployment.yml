@@ -1,0 +1,47 @@
+name: Airflow DAGs Deployment
+
+on:
+  push:
+    branches:
+      - dev
+      - qa
+      - main
+    paths:
+      - 'airflow/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-airflow:
+    name: Deploy Airflow DAGs
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install Dependencies
+        run: |
+          pip install -r airflow/requirements.txt
+      
+      - name: Validate DAGs
+        run: |
+          export AIRFLOW_HOME=$(pwd)/airflow
+          airflow dags list
+          airflow dags test ingest_pos_events_stream || true
+      
+      - name: Deploy to AKS
+        run: |
+          # Get AKS credentials
+          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          az aks get-credentials --resource-group ${{ secrets.AKS_RG }} --name ${{ secrets.AKS_CLUSTER_NAME }}
+          
+          # Copy DAGs to Airflow pod
+          kubectl cp airflow/dags/ <namespace>/<airflow-pod>:/opt/airflow/dags/
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+

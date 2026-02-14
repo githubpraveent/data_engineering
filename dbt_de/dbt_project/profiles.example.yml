@@ -1,0 +1,36 @@
+retail_data_warehouse:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake  # Change to bigquery, redshift, etc. as needed
+      account: your_account
+      user: your_user
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: your_role
+      database: retail_db
+      warehouse: compute_wh
+      schema: dev_schema
+      threads: 4
+    
+    qa:
+      type: snowflake
+      account: your_account
+      user: your_user
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: your_role
+      database: retail_db
+      warehouse: compute_wh
+      schema: qa_schema
+      threads: 4
+    
+    prod:
+      type: snowflake
+      account: your_account
+      user: your_user
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: your_role
+      database: retail_db
+      warehouse: compute_wh
+      schema: prod_schema
+      threads: 8
+

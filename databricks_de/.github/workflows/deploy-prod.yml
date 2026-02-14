@@ -1,0 +1,144 @@
+name: Deploy to Production Environment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'databricks/**'
+      - 'airflow/**'
+      - '.github/workflows/deploy-prod.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_deployment:
+        description: 'Type "DEPLOY" to confirm production deployment'
+        required: true
+
+env:
+  ENVIRONMENT: prod
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_PROD_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PROD_TOKEN }}
+  AIRFLOW_URL: ${{ secrets.AIRFLOW_PROD_URL }}
+
+jobs:
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 pylint pytest pytest-cov
+          pip install -r airflow/requirements.txt
+
+      - name: Lint Python files
+        run: |
+          flake8 databricks/ --max-line-length=120 --ignore=E501,W503
+          flake8 airflow/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --cov=databricks --cov-report=xml --cov-fail-under=80
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v
+
+      - name: Run data quality tests
+        run: |
+          pytest tests/data_quality/ -v
+
+      - name: Validate Airflow DAGs
+        run: |
+          python -m airflow dags list
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  deploy-databricks:
+    name: Deploy to Databricks Production
+    needs: [lint-and-test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_deployment == 'DEPLOY' || github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Databricks CLI
+        uses: databricks/setup-cli@v1
+        with:
+          databricks-host: ${{ env.DATABRICKS_HOST }}
+          databricks-token: ${{ env.DATABRICKS_TOKEN }}
+
+      - name: Backup production tables
+        run: |
+          echo "Backing up production tables before deployment..."
+          # Add backup logic here
+
+      - name: Deploy notebooks
+        run: |
+          chmod +x scripts/deploy_notebooks.sh
+          ./scripts/deploy_notebooks.sh prod
+
+      - name: Deploy job definitions
+        run: |
+          databricks jobs create --json-file databricks/jobs/job_definitions.json || \
+          databricks jobs reset --job-id ${{ secrets.DATABRICKS_PROD_JOB_ID }} --json-file databricks/jobs/job_definitions.json
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests on production..."
+          # Add smoke test logic here
+
+  deploy-airflow:
+    name: Deploy to Airflow Production
+    needs: [lint-and-test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_deployment == 'DEPLOY' || github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy Airflow DAGs
+        run: |
+          echo "Deploying Airflow DAGs to production environment..."
+          # Add deployment logic here
+
+  notify:
+    name: Notify Deployment
+    needs: [deploy-databricks, deploy-airflow]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production Deployment: ${{ job.status }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+

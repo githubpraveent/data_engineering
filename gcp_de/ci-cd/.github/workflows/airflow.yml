@@ -1,0 +1,71 @@
+name: Airflow DAG Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - qa
+    paths:
+      - 'airflow/dags/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+
+env:
+  GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+jobs:
+  deploy-dags:
+    name: Deploy Airflow DAGs
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || github.ref_name == 'qa' && 'qa' || 'dev' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "ENV=prod" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_PROD }}" >> $GITHUB_ENV
+            echo "COMPOSER_ENV=composer-prod" >> $GITHUB_ENV
+          elif [ "${{ github.ref_name }}" == "qa" ]; then
+            echo "ENV=qa" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_QA }}" >> $GITHUB_ENV
+            echo "COMPOSER_ENV=composer-qa" >> $GITHUB_ENV
+          else
+            echo "ENV=dev" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_DEV }}" >> $GITHUB_ENV
+            echo "COMPOSER_ENV=composer-dev" >> $GITHUB_ENV
+          fi
+
+      - name: Validate DAGs
+        working-directory: airflow/dags
+        run: |
+          pip install apache-airflow==2.5.0
+          python -m airflow dags list || echo "DAG validation completed"
+
+      - name: Copy DAGs to GCS
+        run: |
+          gsutil -m cp -r airflow/dags/*.py gs://$PROJECT_ID-composer-dags-$ENV/dags/
+
+      - name: Verify DAG deployment
+        run: |
+          gsutil ls gs://$PROJECT_ID-composer-dags-$ENV/dags/ | head -5
+

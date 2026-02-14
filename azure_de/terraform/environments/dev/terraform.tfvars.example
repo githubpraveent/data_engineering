@@ -1,0 +1,31 @@
+environment = "dev"
+project_name = "retail-datalake"
+location = "East US"
+
+tags = {
+  Project     = "RetailDataLake"
+  ManagedBy   = "Terraform"
+  Environment = "dev"
+  CostCenter  = "DataEngineering"
+}
+
+# ADLS Configuration
+adls_tier = "Standard"
+adls_replication = "LRS"  # Use ZRS for production
+
+# Event Hubs Configuration
+event_hub_sku = "Standard"
+event_hub_capacity = 1
+
+# Databricks Configuration
+databricks_sku = "standard"  # Use premium for production
+
+# Synapse Configuration
+synapse_sql_pool_sku = "DW100c"
+synapse_sql_pool_min_capacity = 0.5
+
+# AKS Configuration (for Airflow)
+deploy_airflow = true
+aks_node_count = 2
+aks_vm_size = "Standard_D4s_v3"
+

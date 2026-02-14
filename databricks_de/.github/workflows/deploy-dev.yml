@@ -1,0 +1,105 @@
+name: Deploy to Dev Environment
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'databricks/**'
+      - 'airflow/**'
+      - '.github/workflows/deploy-dev.yml'
+  workflow_dispatch:
+
+env:
+  ENVIRONMENT: dev
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_DEV_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_DEV_TOKEN }}
+  AIRFLOW_URL: ${{ secrets.AIRFLOW_DEV_URL }}
+
+jobs:
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 pylint pytest pytest-cov
+          pip install -r airflow/requirements.txt
+
+      - name: Lint Python files
+        run: |
+          flake8 databricks/ --max-line-length=120 --ignore=E501,W503
+          flake8 airflow/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --cov=databricks --cov-report=xml
+
+      - name: Validate Airflow DAGs
+        run: |
+          python -m airflow dags list
+
+  deploy-databricks:
+    name: Deploy to Databricks
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Databricks CLI
+        uses: databricks/setup-cli@v1
+        with:
+          databricks-host: ${{ env.DATABRICKS_HOST }}
+          databricks-token: ${{ env.DATABRICKS_TOKEN }}
+
+      - name: Deploy notebooks
+        run: |
+          chmod +x scripts/deploy_notebooks.sh
+          ./scripts/deploy_notebooks.sh dev
+
+      - name: Deploy job definitions
+        run: |
+          databricks jobs create --json-file databricks/jobs/job_definitions.json || \
+          databricks jobs reset --job-id ${{ secrets.DATABRICKS_DEV_JOB_ID }} --json-file databricks/jobs/job_definitions.json
+
+  deploy-airflow:
+    name: Deploy to Airflow
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy Airflow DAGs
+        run: |
+          # Copy DAGs to Airflow DAGs folder (adjust based on your Airflow setup)
+          # For managed Airflow (MWAA, Cloud Composer), use their deployment method
+          # For self-hosted Airflow, you might use rsync or git pull
+          echo "Deploying Airflow DAGs..."
+          # Example: rsync -avz airflow/dags/ user@airflow-server:/opt/airflow/dags/
+
+  notify:
+    name: Notify Deployment
+    needs: [deploy-databricks, deploy-airflow]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Deployment to Dev: ${{ job.status }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+

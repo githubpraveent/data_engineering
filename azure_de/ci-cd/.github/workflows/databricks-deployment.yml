@@ -1,0 +1,57 @@
+name: Databricks Notebooks Deployment
+
+on:
+  push:
+    branches:
+      - dev
+      - qa
+      - main
+    paths:
+      - 'databricks/**'
+  workflow_dispatch:
+
+env:
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+jobs:
+  deploy-databricks:
+    name: Deploy Databricks Notebooks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install Databricks CLI
+        run: |
+          pip install databricks-cli
+      
+      - name: Configure Databricks CLI
+        run: |
+          echo "${{ secrets.DATABRICKS_TOKEN }}" | databricks configure --token
+        env:
+          DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
+      
+      - name: Deploy Notebooks
+        run: |
+          # Deploy ingestion notebooks
+          databricks workspace import_dir databricks/notebooks/ingestion /Shared/ingestion -o
+          
+          # Deploy transformation notebooks
+          databricks workspace import_dir databricks/notebooks/transformation /Shared/transformation -o
+          
+          # Deploy quality notebooks
+          databricks workspace import_dir databricks/notebooks/quality /Shared/quality -o
+      
+      - name: Run Tests
+        run: |
+          # Run unit tests if available
+          echo "Running Databricks notebook tests..."
+          # Add test execution logic here
+

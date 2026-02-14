@@ -1,0 +1,49 @@
+name: Data Quality Tests
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Daily at 8 AM
+  workflow_dispatch:
+
+jobs:
+  run-quality-tests:
+    name: Run Data Quality Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install Dependencies
+        run: |
+          pip install -r tests/requirements.txt
+      
+      - name: Run Unit Tests
+        run: |
+          pytest tests/unit/ -v
+      
+      - name: Run Integration Tests
+        run: |
+          pytest tests/integration/ -v
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      
+      - name: Run Data Quality Checks
+        run: |
+          # Trigger Airflow DAG for data quality
+          python tests/data-quality/run_quality_checks.py
+      
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: 'test-results/**/*.xml'
+

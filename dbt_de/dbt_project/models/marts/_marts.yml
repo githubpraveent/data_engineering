@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: mart_sales_summary
+    description: "Aggregated sales metrics by date, store, product, category, and customer"
+    columns:
+      - name: order_date
+        description: "Order transaction date"
+        tests:
+          - not_null
+      - name: total_revenue
+        description: "Total revenue for the grouping"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+  
+  - name: mart_customer_metrics
+    description: "Customer-level aggregated metrics and segmentation"
+    columns:
+      - name: customer_id
+        description: "Customer identifier"
+        tests:
+          - unique
+          - not_null
+      - name: total_orders
+        description: "Total number of orders"
+      - name: total_revenue
+        description: "Total revenue from customer"
+

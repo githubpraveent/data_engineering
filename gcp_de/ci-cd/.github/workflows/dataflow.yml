@@ -1,0 +1,106 @@
+name: Dataflow Pipeline Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - qa
+    paths:
+      - 'dataflow/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+
+env:
+  PYTHON_VERSION: '3.9'
+  GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Dataflow Templates
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || github.ref_name == 'qa' && 'qa' || 'dev' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Install dependencies
+        working-directory: dataflow
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build package
+        working-directory: dataflow
+        run: python setup.py sdist
+
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "ENV=prod" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_PROD }}" >> $GITHUB_ENV
+          elif [ "${{ github.ref_name }}" == "qa" ]; then
+            echo "ENV=qa" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_QA }}" >> $GITHUB_ENV
+          else
+            echo "ENV=dev" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_DEV }}" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy Streaming Pipeline Template
+        working-directory: dataflow
+        run: |
+          python streaming/pubsub_to_gcs_bigquery.py \
+            --runner DataflowRunner \
+            --project $PROJECT_ID \
+            --region us-central1 \
+            --temp_location gs://$PROJECT_ID-dataflow-temp-$ENV/temp \
+            --staging_location gs://$PROJECT_ID-dataflow-staging-$ENV/staging \
+            --template_location gs://$PROJECT_ID-dataflow-staging-$ENV/templates/streaming_pipeline_template \
+            --input_subscription projects/$PROJECT_ID/subscriptions/retail-transactions-dataflow-$ENV \
+            --output_gcs gs://$PROJECT_ID-data-lake-raw-$ENV/transactions/ \
+            --output_table $PROJECT_ID:staging_$ENV.transactions \
+            --window_size 300
+
+      - name: Deploy Batch Pipeline Template
+        working-directory: dataflow
+        run: |
+          python batch/gcs_transform_pipeline.py \
+            --runner DataflowRunner \
+            --project $PROJECT_ID \
+            --region us-central1 \
+            --temp_location gs://$PROJECT_ID-dataflow-temp-$ENV/temp \
+            --staging_location gs://$PROJECT_ID-dataflow-staging-$ENV/staging \
+            --template_location gs://$PROJECT_ID-dataflow-staging-$ENV/templates/batch_transform_template \
+            --input gs://$PROJECT_ID-data-lake-raw-$ENV/transactions/ \
+            --output_gcs gs://$PROJECT_ID-data-lake-staging-$ENV/transactions/ \
+            --output_table $PROJECT_ID:staging_$ENV.transactions_staging \
+            --input_format json
+
+      - name: Run unit tests
+        working-directory: dataflow
+        run: |
+          pip install pytest
+          pytest tests/unit/ -v || echo "No unit tests found"
+

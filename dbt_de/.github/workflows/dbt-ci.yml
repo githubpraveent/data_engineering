@@ -1,0 +1,191 @@
+name: dbt CI/CD
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+env:
+  DBT_PROFILES_DIR: ./
+  DBT_PROJECT_DIR: ./dbt_project
+
+jobs:
+  lint:
+    name: Lint dbt Project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dbt
+        run: |
+          pip install dbt-core dbt-snowflake
+          # pip install dbt-bigquery  # Uncomment if using BigQuery
+          # pip install dbt-redshift  # Uncomment if using Redshift
+      
+      - name: Install dbt dependencies
+        working-directory: ./dbt_project
+        run: dbt deps
+      
+      - name: Lint dbt project
+        working-directory: ./dbt_project
+        run: |
+          dbt debug --profiles-dir . --project-dir .
+          dbt parse --profiles-dir . --project-dir .
+      
+      - name: Check dbt compile
+        working-directory: ./dbt_project
+        run: dbt compile --profiles-dir . --project-dir .
+
+  test-dev:
+    name: Test dbt Models (Dev)
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dbt
+        run: |
+          pip install dbt-core dbt-snowflake
+      
+      - name: Install dbt dependencies
+        working-directory: ./dbt_project
+        run: dbt deps
+      
+      - name: Configure dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cp dbt_project/profiles.example.yml ~/.dbt/profiles.yml
+          # Note: In real implementation, use GitHub Secrets for credentials
+      
+      - name: Run dbt models (staging only for PRs)
+        working-directory: ./dbt_project
+        env:
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          dbt run --select tag:staging --target dev --profiles-dir ~/.dbt
+      
+      - name: Run dbt tests
+        working-directory: ./dbt_project
+        env:
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          dbt test --select tag:staging --target dev --profiles-dir ~/.dbt
+
+  build-qa:
+    name: Build dbt Models (QA)
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dbt
+        run: |
+          pip install dbt-core dbt-snowflake
+      
+      - name: Install dbt dependencies
+        working-directory: ./dbt_project
+        run: dbt deps
+      
+      - name: Configure dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cp dbt_project/profiles.example.yml ~/.dbt/profiles.yml
+      
+      - name: Run dbt models
+        working-directory: ./dbt_project
+        env:
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          dbt run --target qa --profiles-dir ~/.dbt
+      
+      - name: Run dbt tests
+        working-directory: ./dbt_project
+        env:
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          dbt test --target qa --profiles-dir ~/.dbt
+      
+      - name: Generate dbt docs
+        working-directory: ./dbt_project
+        env:
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          dbt docs generate --target qa --profiles-dir ~/.dbt
+      
+      - name: Upload dbt docs
+        uses: actions/upload-artifact@v3
+        with:
+          name: dbt-docs-qa
+          path: dbt_project/target/
+
+  build-prod:
+    name: Build dbt Models (Prod)
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dbt
+        run: |
+          pip install dbt-core dbt-snowflake
+      
+      - name: Install dbt dependencies
+        working-directory: ./dbt_project
+        run: dbt deps
+      
+      - name: Configure dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cp dbt_project/profiles.example.yml ~/.dbt/profiles.yml
+      
+      - name: Run dbt models
+        working-directory: ./dbt_project
+        env:
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          dbt run --target prod --profiles-dir ~/.dbt
+      
+      - name: Run dbt tests
+        working-directory: ./dbt_project
+        env:
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          dbt test --target prod --profiles-dir ~/.dbt
+      
+      - name: Generate dbt docs
+        working-directory: ./dbt_project
+        env:
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          dbt docs generate --target prod --profiles-dir ~/.dbt
+      
+      - name: Deploy dbt docs
+        # In real implementation, deploy docs to S3, GitHub Pages, or other hosting
+        run: |
+          echo "Deploy docs to hosting service"
+          # Example: aws s3 sync dbt_project/target/ s3://docs-bucket/dbt-docs/
+

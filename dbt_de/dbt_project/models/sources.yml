@@ -1,0 +1,113 @@
+version: 2
+
+# This file defines the sources that dbt reads from
+# In a real implementation, these would point to your actual data lake/warehouse tables
+
+sources:
+  - name: raw_data
+    description: "Raw data from data lake bronze layer"
+    database: retail_db
+    schema: bronze
+    tables:
+      - name: orders
+        description: "Raw order transactions from POS systems"
+        columns:
+          - name: order_id
+            description: "Unique order identifier"
+          - name: customer_id
+            description: "Customer identifier"
+          - name: store_id
+            description: "Store identifier"
+          - name: order_date
+            description: "Order transaction date"
+          - name: total_amount
+            description: "Total order amount"
+          - name: status
+            description: "Order status"
+      
+      - name: customers
+        description: "Raw customer data"
+        columns:
+          - name: customer_id
+            description: "Unique customer identifier"
+          - name: first_name
+            description: "Customer first name"
+          - name: last_name
+            description: "Customer last name"
+          - name: email
+            description: "Customer email address"
+          - name: address
+            description: "Customer address"
+          - name: city
+            description: "Customer city"
+          - name: state
+            description: "Customer state"
+          - name: zip_code
+            description: "Customer zip code"
+          - name: updated_at
+            description: "Record last updated timestamp"
+      
+      - name: products
+        description: "Raw product catalog data"
+        columns:
+          - name: product_id
+            description: "Unique product identifier"
+          - name: product_name
+            description: "Product name"
+          - name: category_id
+            description: "Product category identifier"
+          - name: price
+            description: "Product price"
+          - name: cost
+            description: "Product cost"
+          - name: updated_at
+            description: "Record last updated timestamp"
+      
+      - name: order_items
+        description: "Raw order line items"
+        columns:
+          - name: order_item_id
+            description: "Unique order item identifier"
+          - name: order_id
+            description: "Order identifier"
+          - name: product_id
+            description: "Product identifier"
+          - name: quantity
+            description: "Item quantity"
+          - name: unit_price
+            description: "Unit price at time of order"
+          - name: line_total
+            description: "Line item total"
+      
+      - name: stores
+        description: "Raw store location data"
+        columns:
+          - name: store_id
+            description: "Unique store identifier"
+          - name: store_name
+            description: "Store name"
+          - name: address
+            description: "Store address"
+          - name: city
+            description: "Store city"
+          - name: state
+            description: "Store state"
+          - name: zip_code
+            description: "Store zip code"
+          - name: updated_at
+            description: "Record last updated timestamp"
+      
+      - name: inventory
+        description: "Raw inventory snapshots"
+        columns:
+          - name: inventory_id
+            description: "Unique inventory record identifier"
+          - name: store_id
+            description: "Store identifier"
+          - name: product_id
+            description: "Product identifier"
+          - name: quantity_on_hand
+            description: "Quantity available"
+          - name: snapshot_date
+            description: "Inventory snapshot date"
+

@@ -1,0 +1,93 @@
+{
+  "jobs": [
+    {
+      "name": "retail_ingestion_orders",
+      "new_cluster": {
+        "spark_version": "13.3.x-scala2.12",
+        "node_type_id": "i3.xlarge",
+        "driver_node_type_id": "i3.xlarge",
+        "num_workers": 2,
+        "spark_conf": {
+          "spark.databricks.delta.optimizeWrite.enabled": "true",
+          "spark.databricks.delta.autoCompact.enabled": "true"
+        }
+      },
+      "notebook_task": {
+        "notebook_path": "/Shared/retail-datalake/dev/databricks/notebooks/ingestion/batch/ingest_orders",
+        "base_parameters": {
+          "source_system": "orders_db",
+          "environment": "dev",
+          "catalog": "retail_datalake",
+          "bronze_schema": "bronze"
+        }
+      },
+      "timeout_seconds": 3600,
+      "max_retries": 2,
+      "retry_on_timeout": true,
+      "email_notifications": {
+        "on_failure": ["data-engineering@company.com"],
+        "on_success": []
+      },
+      "schedule": {
+        "quartz_cron_expression": "0 0 * * * ?",
+        "timezone_id": "America/New_York"
+      }
+    },
+    {
+      "name": "retail_bronze_to_silver_orders",
+      "new_cluster": {
+        "spark_version": "13.3.x-scala2.12",
+        "node_type_id": "i3.xlarge",
+        "driver_node_type_id": "i3.xlarge",
+        "num_workers": 3,
+        "spark_conf": {
+          "spark.databricks.delta.optimizeWrite.enabled": "true",
+          "spark.databricks.delta.autoCompact.enabled": "true",
+          "spark.sql.adaptive.enabled": "true"
+        }
+      },
+      "notebook_task": {
+        "notebook_path": "/Shared/retail-datalake/dev/databricks/notebooks/transformation/bronze_to_silver/clean_orders",
+        "base_parameters": {
+          "environment": "dev",
+          "catalog": "retail_datalake",
+          "bronze_schema": "bronze",
+          "silver_schema": "silver",
+          "incremental": "true"
+        }
+      },
+      "timeout_seconds": 7200,
+      "max_retries": 2,
+      "retry_on_timeout": true
+    },
+    {
+      "name": "retail_silver_to_gold_fact_sales",
+      "new_cluster": {
+        "spark_version": "13.3.x-scala2.12",
+        "node_type_id": "i3.xlarge",
+        "driver_node_type_id": "i3.xlarge",
+        "num_workers": 4,
+        "spark_conf": {
+          "spark.databricks.delta.optimizeWrite.enabled": "true",
+          "spark.databricks.delta.autoCompact.enabled": "true",
+          "spark.sql.adaptive.enabled": "true",
+          "spark.sql.adaptive.coalescePartitions.enabled": "true"
+        }
+      },
+      "notebook_task": {
+        "notebook_path": "/Shared/retail-datalake/dev/databricks/notebooks/transformation/silver_to_gold/build_fact_sales",
+        "base_parameters": {
+          "environment": "dev",
+          "catalog": "retail_datalake",
+          "silver_schema": "silver",
+          "gold_schema": "gold",
+          "incremental": "true"
+        }
+      },
+      "timeout_seconds": 7200,
+      "max_retries": 2,
+      "retry_on_timeout": true
+    }
+  ]
+}
+

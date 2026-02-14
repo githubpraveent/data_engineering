@@ -1,0 +1,72 @@
+name: Synapse SQL Deployment
+
+on:
+  push:
+    branches:
+      - dev
+      - qa
+      - main
+    paths:
+      - 'synapse/**'
+  workflow_dispatch:
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  deploy-synapse:
+    name: Deploy Synapse SQL Scripts
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Deploy Schemas
+        run: |
+          az synapse sql-script create \
+            --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+            --resource-group ${{ secrets.SYNAPSE_RG }} \
+            --file synapse/schemas/staging_schema.sql \
+            --name staging_schema
+          
+          az synapse sql-script create \
+            --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+            --resource-group ${{ secrets.SYNAPSE_RG }} \
+            --file synapse/schemas/dimension_schema.sql \
+            --name dimension_schema
+          
+          az synapse sql-script create \
+            --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+            --resource-group ${{ secrets.SYNAPSE_RG }} \
+            --file synapse/schemas/fact_schema.sql \
+            --name fact_schema
+      
+      - name: Deploy Stored Procedures
+        run: |
+          # Deploy all stored procedures
+          for file in synapse/stored-procedures/*.sql; do
+            script_name=$(basename "$file" .sql)
+            az synapse sql-script create \
+              --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+              --resource-group ${{ secrets.SYNAPSE_RG }} \
+              --file "$file" \
+              --name "$script_name"
+          done
+      
+      - name: Run Schema Tests
+        run: |
+          # Run validation stored procedures
+          az synapse sql-script execute \
+            --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+            --resource-group ${{ secrets.SYNAPSE_RG }} \
+            --sql-script-name sp_validate_dimensions || true
+

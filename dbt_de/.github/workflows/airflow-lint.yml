@@ -1,0 +1,34 @@
+name: Airflow Lint
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  lint-airflow:
+    name: Lint Airflow DAGs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          pip install apache-airflow==2.7.0
+          pip install flake8 pylint
+      
+      - name: Lint Airflow DAGs
+        run: |
+          python -m flake8 airflow/dags/ --max-line-length=120 --extend-ignore=E501
+          python -m pylint airflow/dags/ --disable=all --enable=import-error
+      
+      - name: Validate DAG syntax
+        run: |
+          python -c "from airflow.models import DagBag; d = DagBag(); d.dags"
+

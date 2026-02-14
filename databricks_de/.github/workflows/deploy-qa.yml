@@ -1,0 +1,103 @@
+name: Deploy to QA Environment
+
+on:
+  push:
+    branches:
+      - qa
+    paths:
+      - 'databricks/**'
+      - 'airflow/**'
+      - '.github/workflows/deploy-qa.yml'
+  workflow_dispatch:
+
+env:
+  ENVIRONMENT: qa
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_QA_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_QA_TOKEN }}
+  AIRFLOW_URL: ${{ secrets.AIRFLOW_QA_URL }}
+
+jobs:
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 pylint pytest pytest-cov
+          pip install -r airflow/requirements.txt
+
+      - name: Lint Python files
+        run: |
+          flake8 databricks/ --max-line-length=120 --ignore=E501,W503
+          flake8 airflow/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --cov=databricks --cov-report=xml
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v
+
+      - name: Validate Airflow DAGs
+        run: |
+          python -m airflow dags list
+
+  deploy-databricks:
+    name: Deploy to Databricks QA
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Databricks CLI
+        uses: databricks/setup-cli@v1
+        with:
+          databricks-host: ${{ env.DATABRICKS_HOST }}
+          databricks-token: ${{ env.DATABRICKS_TOKEN }}
+
+      - name: Deploy notebooks
+        run: |
+          chmod +x scripts/deploy_notebooks.sh
+          ./scripts/deploy_notebooks.sh qa
+
+      - name: Deploy job definitions
+        run: |
+          databricks jobs create --json-file databricks/jobs/job_definitions.json || \
+          databricks jobs reset --job-id ${{ secrets.DATABRICKS_QA_JOB_ID }} --json-file databricks/jobs/job_definitions.json
+
+  deploy-airflow:
+    name: Deploy to Airflow QA
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy Airflow DAGs
+        run: |
+          echo "Deploying Airflow DAGs to QA environment..."
+
+  notify:
+    name: Notify Deployment
+    needs: [deploy-databricks, deploy-airflow]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Deployment to QA: ${{ job.status }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+

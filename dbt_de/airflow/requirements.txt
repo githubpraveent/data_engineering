@@ -1,0 +1,12 @@
+apache-airflow==2.7.0
+apache-airflow-providers-amazon==8.7.0
+apache-airflow-providers-google==10.7.0
+apache-airflow-providers-microsoft-azure==6.2.0
+dbt-core==1.6.0
+dbt-snowflake==1.6.0
+# dbt-bigquery==1.6.0  # Uncomment if using BigQuery
+# dbt-redshift==1.6.0  # Uncomment if using Redshift
+pandas==2.0.3
+pyarrow==12.0.1
+boto3==1.28.25
+

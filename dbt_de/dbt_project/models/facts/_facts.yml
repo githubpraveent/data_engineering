@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  - name: fct_orders
+    description: "Order-level fact table with aggregated metrics"
+    columns:
+      - name: order_id
+        description: "Unique order identifier"
+        tests:
+          - unique
+          - not_null
+      - name: order_date
+        description: "Order transaction date"
+        tests:
+          - not_null
+      - name: total_amount
+        description: "Total order amount"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+      - name: total_profit
+        description: "Total profit for the order"
+  
+  - name: fct_order_items
+    description: "Order line item-level fact table"
+    columns:
+      - name: order_item_id
+        description: "Unique order item identifier"
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: "Order identifier"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_id
+      - name: quantity
+        description: "Item quantity"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+      - name: line_total
+        description: "Line item total"
+        tests:
+          - not_null
+  
+  - name: fct_inventory_snapshots
+    description: "Periodic snapshot fact table for inventory levels"
+    columns:
+      - name: inventory_snapshot_key
+        description: "Composite key for inventory snapshot"
+        tests:
+          - unique
+          - not_null
+      - name: snapshot_date
+        description: "Date of inventory snapshot"
+        tests:
+          - not_null
+      - name: quantity_on_hand
+        description: "Quantity available"
+        tests:
+          - not_null
+

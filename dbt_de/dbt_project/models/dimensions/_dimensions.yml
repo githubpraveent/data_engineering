@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: "Customer dimension with SCD Type 2 history tracking"
+    columns:
+      - name: customer_id
+        description: "Business key - customer identifier"
+        tests:
+          - not_null
+      - name: current_flag
+        description: "True for current version of customer record"
+        tests:
+          - not_null
+      - name: valid_from
+        description: "Timestamp when this version became valid"
+        tests:
+          - not_null
+      - name: valid_to
+        description: "Timestamp when this version became invalid (null for current)"
+  
+  - name: dim_products
+    description: "Product dimension with SCD Type 2 history tracking"
+    columns:
+      - name: product_id
+        description: "Business key - product identifier"
+        tests:
+          - not_null
+      - name: current_flag
+        description: "True for current version of product record"
+        tests:
+          - not_null
+      - name: valid_from
+        description: "Timestamp when this version became valid"
+        tests:
+          - not_null
+  
+  - name: dim_stores
+    description: "Store dimension with SCD Type 2 history tracking"
+    columns:
+      - name: store_id
+        description: "Business key - store identifier"
+        tests:
+          - not_null
+      - name: current_flag
+        description: "True for current version of store record"
+        tests:
+          - not_null
+  
+  - name: dim_categories
+    description: "Category dimension (SCD Type 1 - no history)"
+    columns:
+      - name: category_id
+        description: "Category identifier"
+        tests:
+          - unique
+          - not_null
+

@@ -1,0 +1,78 @@
+name: BigQuery Schema Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - qa
+    paths:
+      - 'bigquery/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+
+env:
+  GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+jobs:
+  deploy-schemas:
+    name: Deploy BigQuery Schemas
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || github.ref_name == 'qa' && 'qa' || 'dev' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "ENV=prod" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_PROD }}" >> $GITHUB_ENV
+          elif [ "${{ github.ref_name }}" == "qa" ]; then
+            echo "ENV=qa" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_QA }}" >> $GITHUB_ENV
+          else
+            echo "ENV=dev" >> $GITHUB_ENV
+            echo "PROJECT_ID=${{ secrets.GCP_PROJECT_DEV }}" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy Staging Tables
+        run: |
+          sed "s/{project_id}/$PROJECT_ID/g; s/{staging_dataset}/staging_$ENV/g; s/{environment}/$ENV/g" \
+            bigquery/schemas/create_staging_tables.sql | \
+            bq query --use_legacy_sql=false
+
+      - name: Deploy Curated Tables
+        run: |
+          sed "s/{project_id}/$PROJECT_ID/g; s/{curated_dataset}/curated_$ENV/g; s/{environment}/$ENV/g" \
+            bigquery/schemas/create_curated_tables.sql | \
+            bq query --use_legacy_sql=false
+
+      - name: Deploy Analytics Tables
+        run: |
+          sed "s/{project_id}/$PROJECT_ID/g; s/{analytics_dataset}/analytics_$ENV/g; s/{environment}/$ENV/g" \
+            bigquery/schemas/create_analytics_tables.sql | \
+            bq query --use_legacy_sql=false
+
+      - name: Load Date Dimension
+        run: |
+          sed "s/{project_id}/$PROJECT_ID/g; s/{curated_dataset}/curated_$ENV/g" \
+            bigquery/transformations/load_date_dimension.sql | \
+            bq query --use_legacy_sql=false
+
