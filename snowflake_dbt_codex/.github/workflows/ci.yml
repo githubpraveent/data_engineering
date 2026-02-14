@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+      - name: dbt compile
+        run: |
+          cd dbt
+          dbt compile --profiles-dir .
+        env:
+          SNOWFLAKE_ACCOUNT: dummy
+          SNOWFLAKE_USER: dummy
+          SNOWFLAKE_PASSWORD: dummy
+          SNOWFLAKE_ROLE: dummy
+          SNOWFLAKE_DATABASE: dummy
+          SNOWFLAKE_WAREHOUSE: dummy
+          SNOWFLAKE_SCHEMA: dummy

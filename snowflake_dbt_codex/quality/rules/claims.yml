@@ -1,0 +1,15 @@
+rules:
+  - name: claims_not_null
+    table: marts.mart_claims
+    column: claim_id
+    check: not_null
+  - name: member_fk
+    table: marts.mart_claims
+    column: member_id
+    check: fk_exists
+    reference_table: marts.dim_member
+    reference_column: member_id
+  - name: claim_amount_positive
+    table: marts.mart_claims
+    column: total_allowed_amount
+    check: positive

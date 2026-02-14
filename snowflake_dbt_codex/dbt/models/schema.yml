@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: stg_claims
+    columns:
+      - name: claim_id
+        tests:
+          - not_null
+          - unique
+      - name: member_id
+        tests:
+          - not_null
+  - name: stg_members
+    columns:
+      - name: member_id
+        tests:
+          - not_null
+          - unique
+  - name: stg_providers
+    columns:
+      - name: provider_id
+        tests:
+          - not_null
+          - unique
+  - name: mart_claims
+    columns:
+      - name: claim_id
+        tests:
+          - not_null
+          - unique
+      - name: member_id
+        tests:
+          - relationships:
+              to: ref('dim_member')
+              field: member_id
