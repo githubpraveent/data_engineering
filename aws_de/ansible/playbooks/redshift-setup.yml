@@ -1,0 +1,53 @@
+---
+- name: Setup Redshift Schemas and Objects
+  hosts: localhost
+  gather_facts: false
+  vars:
+    redshift_host: "{{ lookup('env', 'REDSHIFT_HOST') }}"
+    redshift_port: "{{ lookup('env', 'REDSHIFT_PORT') | default('5439') }}"
+    redshift_database: "{{ lookup('env', 'REDSHIFT_DATABASE') | default('retail_dw') }}"
+    redshift_user: "{{ lookup('env', 'REDSHIFT_USER') }}"
+    redshift_password: "{{ lookup('env', 'REDSHIFT_PASSWORD') }}"
+    environment: "{{ lookup('env', 'ENVIRONMENT') | default('dev') }}"
+
+  tasks:
+    - name: Install psycopg2
+      pip:
+        name: psycopg2-binary
+        state: present
+
+    - name: Create staging schema
+      script: ../scripts/redshift/create_schema.sh
+      environment:
+        PGHOST: "{{ redshift_host }}"
+        PGPORT: "{{ redshift_port }}"
+        PGDATABASE: "{{ redshift_database }}"
+        PGUSER: "{{ redshift_user }}"
+        PGPASSWORD: "{{ redshift_password }}"
+        SCHEMA_NAME: "staging"
+
+    - name: Create analytics schema
+      script: ../scripts/redshift/create_schema.sh
+      environment:
+        PGHOST: "{{ redshift_host }}"
+        PGPORT: "{{ redshift_port }}"
+        PGDATABASE: "{{ redshift_database }}"
+        PGUSER: "{{ redshift_user }}"
+        PGPASSWORD: "{{ redshift_password }}"
+        SCHEMA_NAME: "analytics"
+
+    - name: Run Redshift DDL scripts
+      command: psql -h {{ redshift_host }} -p {{ redshift_port }} -U {{ redshift_user }} -d {{ redshift_database }} -f "{{ item }}"
+      environment:
+        PGPASSWORD: "{{ redshift_password }}"
+      loop:
+        - "../../redshift/schemas/staging.sql"
+        - "../../redshift/schemas/analytics.sql"
+      register: ddl_results
+
+    - name: Display DDL results
+      debug:
+        msg: "{{ item.stdout }}"
+      loop: "{{ ddl_results.results }}"
+      when: item.stdout is defined
+

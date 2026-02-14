@@ -1,0 +1,75 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+      component:
+        description: 'Component to rollback'
+        required: true
+        type: choice
+        options:
+          - terraform
+          - glue
+          - redshift
+      rollback_version:
+        description: 'Version/tag to rollback to'
+        required: true
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  rollback:
+    name: Rollback ${{ inputs.component }} - ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.rollback_version }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Rollback Terraform
+        if: inputs.component == 'terraform'
+        working-directory: ./terraform
+        run: |
+          terraform init
+          terraform workspace select ${{ inputs.environment }}
+          terraform apply -var-file="environments/${{ inputs.environment }}/terraform.tfvars"
+
+      - name: Rollback Glue Jobs
+        if: inputs.component == 'glue'
+        run: |
+          # Download previous version of Glue scripts
+          aws s3 sync s3://retail-datalake-${{ inputs.environment }}-backup/scripts/glue/ \
+            s3://retail-datalake-${{ inputs.environment }}/scripts/glue/ \
+            --exclude "*" \
+            --include "*${{ inputs.rollback_version }}*"
+
+      - name: Rollback Redshift
+        if: inputs.component == 'redshift'
+        run: |
+          # Restore from backup or re-run previous schema version
+          echo "Redshift rollback requires manual intervention or backup restoration"
+
+      - name: Verify Rollback
+        run: |
+          echo "Rollback completed. Please verify the deployment."
+

@@ -1,0 +1,67 @@
+---
+- name: Setup Kafka Topics and Schema Registry
+  hosts: localhost
+  gather_facts: false
+  vars:
+    msk_bootstrap_servers: "{{ lookup('env', 'MSK_BOOTSTRAP_SERVERS') }}"
+    environment: "{{ lookup('env', 'ENVIRONMENT') | default('dev') }}"
+    kafka_topics:
+      - name: retail.customer.cdc
+        partitions: 3
+        replication_factor: 3
+        config:
+          retention.ms: 604800000  # 7 days
+          compression.type: snappy
+      - name: retail.order.cdc
+        partitions: 3
+        replication_factor: 3
+        config:
+          retention.ms: 604800000
+          compression.type: snappy
+      - name: retail.product.cdc
+        partitions: 3
+        replication_factor: 3
+        config:
+          retention.ms: 604800000
+          compression.type: snappy
+      - name: retail.order_item.cdc
+        partitions: 3
+        replication_factor: 3
+        config:
+          retention.ms: 604800000
+          compression.type: snappy
+
+  tasks:
+    - name: Check if kafka-python is installed
+      command: pip3 show kafka-python
+      register: kafka_python_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install kafka-python
+      pip:
+        name: kafka-python
+        state: present
+      when: kafka_python_check.rc != 0
+
+    - name: Install boto3 for IAM authentication
+      pip:
+        name: boto3
+        state: present
+
+    - name: Create Kafka topics
+      script: ../scripts/kafka/create_topics.py
+      environment:
+        MSK_BOOTSTRAP_SERVERS: "{{ msk_bootstrap_servers }}"
+        AWS_REGION: "{{ lookup('env', 'AWS_REGION') | default('us-east-1') }}"
+        TOPIC_NAME: "{{ item.name }}"
+        PARTITIONS: "{{ item.partitions }}"
+        REPLICATION_FACTOR: "{{ item.replication_factor }}"
+      loop: "{{ kafka_topics }}"
+      register: topic_creation
+      failed_when: topic_creation.rc != 0 and 'already exists' not in topic_creation.stderr | default('')
+
+    - name: Display topic creation results
+      debug:
+        msg: "Topic {{ item.item.name }}: {{ item.stdout }}"
+

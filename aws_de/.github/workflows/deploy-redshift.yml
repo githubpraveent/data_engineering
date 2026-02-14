@@ -1,0 +1,121 @@
+name: Deploy Redshift Schemas
+
+on:
+  push:
+    branches:
+      - main
+      - qa
+      - dev
+    paths:
+      - 'redshift/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-redshift:
+    name: Deploy Redshift Schemas - ${{ github.event.inputs.environment || github.ref_name }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || github.ref_name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Terraform Outputs
+        id: tf-outputs
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-outputs-${{ github.event.inputs.environment || github.ref_name }}
+          path: ./terraform-outputs
+
+      - name: Parse Redshift Endpoint
+        id: parse-outputs
+        run: |
+          REDSHIFT_ENDPOINT=$(jq -r '.redshift_cluster_endpoint.value' terraform-outputs/terraform-outputs.json)
+          echo "endpoint=$REDSHIFT_ENDPOINT" >> $GITHUB_OUTPUT
+
+      - name: Install PostgreSQL Client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Deploy Staging Schema
+        env:
+          PGHOST: ${{ steps.parse-outputs.outputs.endpoint }}
+          PGPORT: 5439
+          PGDATABASE: retail_dw
+          PGUSER: ${{ secrets.REDSHIFT_USER }}
+          PGPASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+        run: |
+          psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -f redshift/schemas/staging.sql
+
+      - name: Deploy Analytics Schema
+        env:
+          PGHOST: ${{ steps.parse-outputs.outputs.endpoint }}
+          PGPORT: 5439
+          PGDATABASE: retail_dw
+          PGUSER: ${{ secrets.REDSHIFT_USER }}
+          PGPASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+        run: |
+          psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -f redshift/schemas/analytics.sql
+
+      - name: Deploy SCD Procedures
+        env:
+          PGHOST: ${{ steps.parse-outputs.outputs.endpoint }}
+          PGPORT: 5439
+          PGDATABASE: retail_dw
+          PGUSER: ${{ secrets.REDSHIFT_USER }}
+          PGPASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+        run: |
+          psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -f redshift/scd/scd_type1_product.sql
+          psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -f redshift/scd/scd_type2_customer.sql
+
+      - name: Deploy Fact Load Procedures
+        env:
+          PGHOST: ${{ steps.parse-outputs.outputs.endpoint }}
+          PGPORT: 5439
+          PGDATABASE: retail_dw
+          PGUSER: ${{ secrets.REDSHIFT_USER }}
+          PGPASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+        run: |
+          psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -f redshift/facts/load_sales_fact.sql
+
+      - name: Deploy Streaming Materialized Views
+        env:
+          PGHOST: ${{ steps.parse-outputs.outputs.endpoint }}
+          PGPORT: 5439
+          PGDATABASE: retail_dw
+          PGUSER: ${{ secrets.REDSHIFT_USER }}
+          PGPASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+        run: |
+          psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -f redshift/streaming/customer_streaming_mv.sql
+          psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -f redshift/streaming/order_streaming_mv.sql
+
+      - name: Deploy Aggregate Procedures
+        env:
+          PGHOST: ${{ steps.parse-outputs.outputs.endpoint }}
+          PGPORT: 5439
+          PGDATABASE: retail_dw
+          PGUSER: ${{ secrets.REDSHIFT_USER }}
+          PGPASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+        run: |
+          psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE -f redshift/aggregates/refresh_sales_summary.sql
+
