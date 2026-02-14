@@ -1,0 +1,23 @@
+[Unit]
+Description=Data Pipeline Service
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ project_dir }}
+EnvironmentFile=/etc/environment.d/pipeline.conf
+ExecStart={{ project_dir }}/venv/bin/python {{ project_dir }}/src/pipeline/main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pipeline
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,41 @@
+{
+  "cluster_name": "lakehouse-streaming-cluster",
+  "spark_version": "14.3.x-scala2.12",
+  "node_type_id": "i3.xlarge",
+  "driver_node_type_id": "i3.xlarge",
+  "num_workers": 2,
+  "autotermination_minutes": 30,
+  "enable_elastic_disk": true,
+  "spark_conf": {
+    "spark.databricks.delta.optimizeWrite.enabled": "true",
+    "spark.databricks.delta.autoCompact.enabled": "true",
+    "spark.sql.streaming.checkpointLocation": "s3://databricks-lakehouse/checkpoints/",
+    "spark.sql.adaptive.enabled": "true",
+    "spark.sql.adaptive.coalescePartitions.enabled": "true",
+    "spark.databricks.io.cache.enabled": "true"
+  },
+  "spark_env_vars": {
+    "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+  },
+  "custom_tags": {
+    "ResourceClass": "Streaming",
+    "Environment": "Production"
+  },
+  "libraries": [
+    {
+      "maven": {
+        "coordinates": "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0"
+      }
+    },
+    {
+      "pypi": {
+        "package": "mlflow==2.8.1"
+      }
+    }
+  ],
+  "cluster_log_conf": {
+    "dbfs": {
+      "destination": "dbfs:/cluster-logs"
+    }
+  }
+}

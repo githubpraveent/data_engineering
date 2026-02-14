@@ -1,0 +1,82 @@
+---
+# Deployment Playbook
+# Deploys the data pipeline application code to servers
+
+- name: Deploy Data Pipeline Application
+  hosts: all
+  become: yes
+  vars:
+    deployment_version: "{{ lookup('env', 'DEPLOYMENT_VERSION') | default('latest', true) }}"
+    app_source: "../.."
+    app_dest: "{{ project_dir }}"
+
+  tasks:
+    - name: Check if application directory exists
+      stat:
+        path: "{{ app_dest }}"
+      register: app_dir
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dest }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+      when: not app_dir.stat.exists
+
+    - name: Copy application code
+      synchronize:
+        src: "{{ app_source }}/src/"
+        dest: "{{ app_dest }}/src/"
+        delete: yes
+        rsync_opts:
+          - "--exclude=__pycache__"
+          - "--exclude=*.pyc"
+          - "--exclude=.pytest_cache"
+      delegate_to: localhost
+      become: no
+
+    - name: Install Python dependencies
+      pip:
+        requirements: "{{ app_dest }}/requirements.txt"
+        virtualenv: "{{ app_dest }}/venv"
+        virtualenv_python: python3
+      become_user: "{{ app_user }}"
+
+    - name: Copy configuration files
+      template:
+        src: "../templates/{{ item }}.j2"
+        dest: "{{ app_dest }}/{{ item | replace('.j2', '') }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0644'
+      loop:
+        - config.yml
+      notify: restart pipeline
+
+    - name: Setup systemd service
+      template:
+        src: ../templates/pipeline.service.j2
+        dest: /etc/systemd/system/pipeline.service
+        mode: '0644'
+      notify:
+        - reload systemd
+        - restart pipeline
+
+    - name: Enable and start pipeline service
+      systemd:
+        name: pipeline
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart pipeline
+      systemd:
+        name: pipeline
+        state: restarted

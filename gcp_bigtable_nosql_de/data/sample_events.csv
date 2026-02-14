@@ -1,0 +1,16 @@
+user_id,event_id,event_type,timestamp,page_url,session_id,duration_seconds,song_id,action
+user001,event_001,page_view,2024-01-15T10:00:00Z,/home,abc123,45,,
+user001,event_002,song_play,2024-01-15T10:05:00Z,/player,abc123,180,song123,play
+user002,event_003,page_view,2024-01-15T10:10:00Z,/home,def456,30,,
+user001,event_004,song_like,2024-01-15T10:15:00Z,/player,abc123,5,song123,like
+user003,event_005,page_view,2024-01-15T10:20:00Z,/home,ghi789,60,,
+user002,event_006,song_play,2024-01-15T10:25:00Z,/player,def456,240,song456,play
+user001,event_007,page_view,2024-01-15T11:00:00Z,/search,abc124,90,,
+user003,event_008,song_play,2024-01-15T11:05:00Z,/player,ghi789,120,song789,play
+user002,event_009,song_like,2024-01-15T11:10:00Z,/player,def456,3,song456,like
+user001,event_010,page_view,2024-01-15T11:15:00Z,/profile,abc124,45,,
+user002,event_011,page_view,2024-01-15T11:20:00Z,/home,def457,75,,
+user003,event_012,song_like,2024-01-15T11:25:00Z,/player,ghi789,2,song789,like
+user001,event_013,song_play,2024-01-15T12:00:00Z,/player,abc125,200,song123,play
+user002,event_014,page_view,2024-01-15T12:05:00Z,/search,def457,120,,
+user003,event_015,page_view,2024-01-15T12:10:00Z,/home,ghi790,50,,

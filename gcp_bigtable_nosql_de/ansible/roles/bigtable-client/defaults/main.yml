@@ -1,0 +1,8 @@
+---
+# Default variables for bigtable-client role
+
+install_gcloud_sdk: false
+install_emulator: false
+create_config_dir: true
+gcp_project_id: ""
+bigtable_instance_id: ""

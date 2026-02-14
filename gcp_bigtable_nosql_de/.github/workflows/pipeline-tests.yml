@@ -1,0 +1,128 @@
+name: Pipeline Tests
+
+on:
+  pull_request:
+    paths:
+      - 'pipelines/**'
+      - 'tests/**'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'pipelines/**'
+      - 'tests/**'
+
+jobs:
+  lint:
+    name: Lint Python Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install black flake8 pylint mypy
+          pip install -r pipelines/requirements.txt
+
+      - name: Run Black (code formatter)
+        run: black --check pipelines/
+
+      - name: Run Flake8 (linter)
+        run: flake8 pipelines/ --max-line-length=100 --extend-ignore=E203,W503
+
+      - name: Run Pylint
+        run: pylint pipelines/ --max-line-length=100 || true
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov pytest-mock
+          pip install -r pipelines/requirements.txt
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --cov=pipelines --cov-report=xml --cov-report=html
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov
+          pip install -r pipelines/requirements.txt
+
+      - name: Run integration tests
+        run: |
+          export GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          export BIGTABLE_INSTANCE=${{ secrets.BIGTABLE_INSTANCE }}
+          pytest tests/integration/ -v
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+  data-quality-checks:
+    name: Data Quality Checks Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest
+          pip install -r pipelines/requirements.txt
+
+      - name: Validate data quality check implementations
+        run: |
+          python -m pytest tests/unit/test_quality_checks.py -v

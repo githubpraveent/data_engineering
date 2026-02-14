@@ -1,0 +1,99 @@
+---
+# Deploy data pipeline service
+# This playbook deploys the actual pipeline code and sets up the service
+
+- name: Deploy Data Pipeline Service
+  hosts: pipeline_servers
+  become: yes
+  vars:
+    pipeline_repo_url: "{{ pipeline_repo_url | default('https://github.com/yourorg/data-pipeline.git') }}"
+    pipeline_branch: "{{ pipeline_branch | default('main') }}"
+    pipeline_home: "/opt/data-pipeline"
+    pipeline_user: "pipeline"
+
+  tasks:
+    - name: Create pipeline user
+      user:
+        name: "{{ pipeline_user }}"
+        system: yes
+        shell: /bin/bash
+        home: "{{ pipeline_home }}"
+        create_home: yes
+
+    - name: Create pipeline directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ pipeline_user }}"
+        group: "{{ pipeline_user }}"
+        mode: '0755'
+      loop:
+        - "{{ pipeline_home }}"
+        - "{{ pipeline_home }}/pipelines"
+        - "{{ pipeline_home }}/data"
+        - "{{ pipeline_home }}/logs"
+        - "{{ pipeline_home }}/venv"
+
+    - name: Checkout pipeline code
+      git:
+        repo: "{{ pipeline_repo_url }}"
+        dest: "{{ pipeline_home }}/pipelines"
+        version: "{{ pipeline_branch }}"
+        update: yes
+      become_user: "{{ pipeline_user }}"
+
+    - name: Create Python virtual environment
+      pip:
+        name: pip
+        state: latest
+        virtualenv: "{{ pipeline_home }}/venv"
+        virtualenv_python: python3
+      become_user: "{{ pipeline_user }}"
+
+    - name: Install pipeline dependencies
+      pip:
+        requirements: "{{ pipeline_home }}/pipelines/requirements.txt"
+        virtualenv: "{{ pipeline_home }}/venv"
+      become_user: "{{ pipeline_user }}"
+      when: requirements_file.stat.exists
+      register: pip_install
+
+    - name: Set up service account key
+      copy:
+        src: "{{ service_account_key_path }}"
+        dest: "{{ pipeline_home }}/service-account.json"
+        owner: "{{ pipeline_user }}"
+        group: "{{ pipeline_user }}"
+        mode: '0600'
+      when: service_account_key_path is defined
+
+    - name: Create environment file
+      template:
+        src: pipeline_env.j2
+        dest: "{{ pipeline_home }}/.env"
+        owner: "{{ pipeline_user }}"
+        group: "{{ pipeline_user }}"
+        mode: '0600'
+      vars:
+        gcp_project_id: "{{ gcp_project_id }}"
+        bigtable_instance: "{{ bigtable_instance_id }}"
+        service_account_path: "{{ pipeline_home }}/service-account.json"
+
+    - name: Create systemd service file
+      template:
+        src: pipeline.service.j2
+        dest: /etc/systemd/system/data-pipeline.service
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Enable and start pipeline service
+      systemd:
+        name: data-pipeline
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes

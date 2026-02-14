@@ -1,0 +1,81 @@
+name: Terraform Plan
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to plan'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan - ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: terraform/environments/${{ github.event.inputs.environment || 'staging' }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=mongodb-pipeline/${{ github.event.inputs.environment || 'staging' }}/terraform.tfstate" \
+            -backend-config="region=us-east-1"
+
+      - name: Terraform Plan
+        working-directory: terraform/environments/${{ github.event.inputs.environment || 'staging' }}
+        env:
+          TF_VAR_mongodb_atlas_api_key: ${{ secrets.MONGODB_ATLAS_API_KEY }}
+          TF_VAR_mongodb_atlas_api_secret: ${{ secrets.MONGODB_ATLAS_API_SECRET }}
+          TF_VAR_mongodb_atlas_org_id: ${{ secrets.MONGODB_ATLAS_ORG_ID }}
+          TF_VAR_key_pair_name: ${{ secrets.AWS_KEY_PAIR_NAME }}
+        run: |
+          terraform plan -out=tfplan \
+            -var-file=terraform.tfvars
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment || 'staging' }}
+          path: terraform/environments/${{ github.event.inputs.environment || 'staging' }}/tfplan
+
+      - name: Comment PR with Plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/environments/${{ github.event.inputs.environment || 'staging' }}/tfplan', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## Terraform Plan Results\n\n```\n' + plan + '\n```'
+            });

@@ -1,0 +1,102 @@
+---
+# Main setup playbook for data pipeline infrastructure
+# This playbook orchestrates the deployment of all required components
+
+- name: Setup Data Pipeline Infrastructure
+  hosts: all
+  become: yes
+  vars:
+    python_version: "3.9"
+    pip_packages:
+      - google-cloud-bigtable>=2.0.0
+      - google-cloud-logging>=3.0.0
+      - google-cloud-monitoring>=2.0.0
+      - pandas>=1.5.0
+      - pyarrow>=10.0.0
+      - pytest>=7.0.0
+      - black>=22.0.0
+      - flake8>=5.0.0
+
+  pre_tasks:
+    - name: Update apt cache (Debian/Ubuntu)
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      become: yes
+
+    - name: Install required system packages
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+          - git
+          - curl
+          - wget
+          - build-essential
+          - libssl-dev
+          - libffi-dev
+        state: present
+      when: ansible_os_family == "Debian"
+      become: yes
+
+    - name: Install required system packages (RedHat/CentOS)
+      yum:
+        name:
+          - python3
+          - python3-pip
+          - git
+          - curl
+          - wget
+          - gcc
+          - openssl-devel
+          - libffi-devel
+        state: present
+      when: ansible_os_family == "RedHat"
+      become: yes
+
+  roles:
+    - role: python-runtime
+      vars:
+        python_version: "{{ python_version }}"
+        pip_packages: "{{ pip_packages }}"
+    
+    - role: bigtable-client
+      vars:
+        project_id: "{{ gcp_project_id }}"
+        instance_id: "{{ bigtable_instance_id }}"
+    
+    - role: pipeline-service
+      vars:
+        pipeline_user: "pipeline"
+        pipeline_home: "/opt/data-pipeline"
+        service_account_key_path: "{{ service_account_key_path | default('/etc/pipeline/service-account.json') }}"
+
+  post_tasks:
+    - name: Verify Python installation
+      command: python3 --version
+      register: python_version_output
+      changed_when: false
+
+    - name: Display Python version
+      debug:
+        msg: "{{ python_version_output.stdout }}"
+
+    - name: Verify pip installation
+      command: pip3 --version
+      register: pip_version_output
+      changed_when: false
+
+    - name: Display pip version
+      debug:
+        msg: "{{ pip_version_output.stdout }}"
+
+    - name: Verify Google Cloud Bigtable client
+      command: python3 -c "import google.cloud.bigtable; print(google.cloud.bigtable.__version__)"
+      register: bigtable_version
+      changed_when: false
+
+    - name: Display Bigtable client version
+      debug:
+        msg: "Bigtable client version: {{ bigtable_version.stdout }}"

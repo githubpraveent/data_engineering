@@ -1,0 +1,35 @@
+{
+  "workspace": {
+    "url": "https://<workspace-url>.cloud.databricks.com",
+    "catalog": "lakehouse",
+    "storage_root": "s3://databricks-lakehouse/data/",
+    "checkpoint_root": "s3://databricks-lakehouse/checkpoints/"
+  },
+  "clusters": {
+    "streaming": {
+      "node_type_id": "i3.xlarge",
+      "num_workers": 2,
+      "spark_version": "14.3.x-scala2.12",
+      "runtime_engine": "STANDARD",
+      "spark_conf": {
+        "spark.databricks.delta.optimizeWrite.enabled": "true",
+        "spark.databricks.delta.autoCompact.enabled": "true",
+        "spark.sql.streaming.checkpointLocation": "${workspace.checkpoint_root}"
+      }
+    },
+    "ml": {
+      "node_type_id": "g4dn.xlarge",
+      "num_workers": 1,
+      "spark_version": "14.3.x-scala2.12",
+      "runtime_engine": "STANDARD",
+      "spark_conf": {
+        "spark.databricks.mlflow.trackingUri": "databricks"
+      }
+    }
+  },
+  "unity_catalog": {
+    "enabled": true,
+    "metastore": "unity-metastore",
+    "external_location": "s3://databricks-lakehouse/unity/"
+  }
+}

@@ -1,0 +1,21 @@
+transaction_id,timestamp,product_id,customer_id,quantity,unit_price,total_amount,currency,payment_method,region,category
+TXN001,2024-01-15 10:30:00,PROD001,CUST001,2,29.99,59.98,USD,credit_card,North America,Electronics
+TXN002,2024-01-15 11:15:00,PROD002,CUST002,1,49.99,49.99,USD,debit_card,North America,Clothing
+TXN003,2024-01-15 12:00:00,PROD001,CUST003,3,29.99,89.97,USD,credit_card,Europe,Electronics
+TXN004,2024-01-15 13:45:00,PROD003,CUST001,1,15.99,15.99,USD,paypal,North America,Books
+TXN005,2024-01-15 14:20:00,PROD002,CUST004,2,49.99,99.98,USD,credit_card,Asia,Clothing
+TXN006,2024-01-16 09:00:00,PROD004,CUST005,1,199.99,199.99,USD,credit_card,North America,Electronics
+TXN007,2024-01-16 10:30:00,PROD001,CUST002,1,29.99,29.99,USD,debit_card,Europe,Electronics
+TXN008,2024-01-16 11:45:00,PROD005,CUST006,5,9.99,49.95,USD,credit_card,North America,Accessories
+TXN009,2024-01-16 13:00:00,PROD003,CUST007,2,15.99,31.98,USD,paypal,Asia,Books
+TXN010,2024-01-16 14:30:00,PROD002,CUST001,1,49.99,49.99,USD,credit_card,North America,Clothing
+TXN011,2024-01-17 09:15:00,PROD004,CUST008,1,199.99,199.99,USD,credit_card,Europe,Electronics
+TXN012,2024-01-17 10:00:00,PROD006,CUST009,3,24.99,74.97,USD,debit_card,North America,Home & Garden
+TXN013,2024-01-17 11:30:00,PROD001,CUST010,2,29.99,59.98,USD,credit_card,Asia,Electronics
+TXN014,2024-01-17 12:45:00,PROD002,CUST003,1,49.99,49.99,USD,paypal,Europe,Clothing
+TXN015,2024-01-17 14:00:00,PROD007,CUST011,1,79.99,79.99,USD,credit_card,North America,Electronics
+TXN016,2024-01-18 09:30:00,PROD003,CUST012,4,15.99,63.96,USD,debit_card,North America,Books
+TXN017,2024-01-18 10:45:00,PROD001,CUST004,1,29.99,29.99,USD,credit_card,Asia,Electronics
+TXN018,2024-01-18 12:00:00,PROD005,CUST013,2,9.99,19.98,USD,paypal,Europe,Accessories
+TXN019,2024-01-18 13:30:00,PROD002,CUST014,3,49.99,149.97,USD,credit_card,North America,Clothing
+TXN020,2024-01-18 14:45:00,PROD004,CUST015,1,199.99,199.99,USD,credit_card,North America,Electronics

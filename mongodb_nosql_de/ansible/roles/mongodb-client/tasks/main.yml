@@ -1,0 +1,45 @@
+---
+# MongoDB Client Role - Install MongoDB tools and Python driver
+
+- name: Add MongoDB repository (RedHat/Amazon Linux)
+  template:
+    src: mongodb-org.repo.j2
+    dest: /etc/yum.repos.d/mongodb-org.repo
+    mode: '0644'
+  when: ansible_os_family == "RedHat"
+
+- name: Add MongoDB GPG key (Ubuntu/Debian)
+  apt_key:
+    url: https://www.mongodb.org/static/pgp/server-6.0.asc
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Add MongoDB repository (Ubuntu/Debian)
+  apt_repository:
+    repo: "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/6.0 multiverse"
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install MongoDB tools
+  package:
+    name:
+      - mongodb-org-tools
+      - mongodb-org-shell
+    state: present
+
+- name: Install PyMongo Python driver
+  pip:
+    name: pymongo
+    state: latest
+    executable: pip3
+
+- name: Verify MongoDB tools installation
+  command: mongosh --version
+  register: mongodb_version
+  changed_when: false
+  ignore_errors: yes
+
+- name: Display MongoDB version
+  debug:
+    msg: "MongoDB tools version: {{ mongodb_version.stdout }}"
+  when: mongodb_version.rc == 0

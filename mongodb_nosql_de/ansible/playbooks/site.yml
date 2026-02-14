@@ -1,0 +1,54 @@
+---
+# Main Ansible Playbook
+# Installs and configures all required components for the data pipeline
+
+- name: Configure Data Pipeline Servers
+  hosts: all
+  become: yes
+  vars:
+    python_version: "3.9"
+    pip_version: "23.3.1"
+
+  pre_tasks:
+    - name: Update system packages
+      package:
+        name: "*"
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Install basic utilities
+      package:
+        name:
+          - git
+          - curl
+          - wget
+          - unzip
+          - vim
+        state: present
+
+  roles:
+    - python
+    - mongodb-client
+    - pipeline-agent
+
+  post_tasks:
+    - name: Ensure application directory exists
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+
+    - name: Set environment variables
+      template:
+        src: ../templates/environment.j2
+        dest: /etc/environment.d/pipeline.conf
+        mode: '0644'
+      vars:
+        mongodb_uri: "{{ mongodb_uri }}"
+        environment: "{{ environment }}"
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes

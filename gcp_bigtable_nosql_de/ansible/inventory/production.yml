@@ -1,0 +1,24 @@
+---
+# Production environment inventory
+
+all:
+  children:
+    production:
+      hosts:
+        prod-server-1:
+          ansible_host: prod-server-1.example.com  # Replace with actual host
+          ansible_user: admin
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+          gcp_project_id: "your-production-project-id"
+          bigtable_instance_id: "production-bigtable-instance"
+          service_account_key_path: "/path/to/service-account-key.json"
+        prod-server-2:
+          ansible_host: prod-server-2.example.com
+          ansible_user: admin
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+          gcp_project_id: "your-production-project-id"
+          bigtable_instance_id: "production-bigtable-instance"
+          service_account_key_path: "/path/to/service-account-key.json"
+      vars:
+        ansible_python_interpreter: /usr/bin/python3
+        environment: production

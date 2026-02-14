@@ -1,0 +1,65 @@
+---
+# Bigtable client setup role
+# Configures Google Cloud Bigtable client libraries and authentication
+
+- name: Ensure Google Cloud SDK is installed
+  block:
+    - name: Add Google Cloud SDK repository (Debian/Ubuntu)
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main"
+        state: present
+      when: ansible_os_family == "Debian"
+      become: yes
+
+    - name: Import Google Cloud SDK GPG key
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        keyring: /usr/share/keyrings/cloud.google.gpg
+        state: present
+      when: ansible_os_family == "Debian"
+      become: yes
+
+    - name: Install Google Cloud SDK
+      apt:
+        name: google-cloud-sdk
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+      become: yes
+
+    - name: Install Google Cloud SDK (RedHat/CentOS)
+      yum:
+        name: google-cloud-sdk
+        state: present
+      when: ansible_os_family == "RedHat"
+      become: yes
+  when: install_gcloud_sdk | default(false)
+
+- name: Install Bigtable Python client
+  pip:
+    name: "google-cloud-bigtable"
+    version: ">=2.0.0"
+    state: present
+
+- name: Install Bigtable emulator (optional, for local testing)
+  pip:
+    name: "google-cloud-bigtable-emulator"
+    state: present
+  when: install_emulator | default(false)
+
+- name: Verify Bigtable client installation
+  command: python3 -c "from google.cloud import bigtable; print('Bigtable client OK')"
+  register: bigtable_verify
+  changed_when: false
+
+- name: Display verification result
+  debug:
+    msg: "{{ bigtable_verify.stdout }}"
+
+- name: Create Bigtable configuration directory
+  file:
+    path: /etc/bigtable
+    state: directory
+    mode: '0755'
+  become: yes
+  when: create_config_dir | default(true)

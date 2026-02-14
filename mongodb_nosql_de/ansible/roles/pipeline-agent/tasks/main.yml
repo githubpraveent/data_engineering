@@ -1,0 +1,60 @@
+---
+# Pipeline Agent Role - Configure service user and deployment agent
+
+- name: Create pipeline user
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    shell: /bin/bash
+    home: /home/{{ app_user }}
+    create_home: yes
+    system: no
+
+- name: Create application directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'
+  loop:
+    - "{{ project_dir }}"
+    - "{{ project_dir }}/logs"
+    - "{{ project_dir }}/data"
+    - /var/log/pipeline
+
+- name: Install CloudWatch agent dependencies
+  package:
+    name:
+      - wget
+      - unzip
+    state: present
+
+- name: Download CloudWatch agent (optional)
+  get_url:
+    url: https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+    dest: /tmp/amazon-cloudwatch-agent.rpm
+    mode: '0644'
+  ignore_errors: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Install CloudWatch agent (optional)
+  yum:
+    name: /tmp/amazon-cloudwatch-agent.rpm
+    state: present
+  when: ansible_os_family == "RedHat" and cloudwatch_enabled | default(false)
+
+- name: Configure log rotation
+  template:
+    src: logrotate.j2
+    dest: /etc/logrotate.d/pipeline
+    mode: '0644'
+
+- name: Setup cron job for pipeline (if needed)
+  cron:
+    name: "Data Pipeline Schedule"
+    minute: "0"
+    hour: "*/6"
+    job: "/opt/data-pipeline/venv/bin/python /opt/data-pipeline/src/pipeline/main.py >> /var/log/pipeline/cron.log 2>&1"
+    user: "{{ app_user }}"
+  when: pipeline_schedule_enabled | default(false)

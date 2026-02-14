@@ -1,0 +1,36 @@
+{
+  "kafka": {
+    "bootstrap_servers": "kafka-broker:9092",
+    "security_protocol": "SASL_SSL",
+    "sasl_mechanism": "PLAIN",
+    "topics": {
+      "customer_events": "customer-behavior-events",
+      "reviews": "customer-reviews"
+    },
+    "consumer": {
+      "group_id": "databricks-lakehouse-consumer",
+      "auto_offset_reset": "latest",
+      "enable_auto_commit": false
+    },
+    "secrets": {
+      "username_secret_scope": "kafka",
+      "username_secret_key": "username",
+      "password_secret_scope": "kafka",
+      "password_secret_key": "password"
+    }
+  },
+  "event_hubs": {
+    "connection_string_secret_scope": "eventhubs",
+    "connection_string_secret_key": "connection_string",
+    "event_hub_name": "customer-events",
+    "consumer_group": "$Default"
+  },
+  "kinesis": {
+    "stream_name": "customer-events-stream",
+    "region": "us-east-1",
+    "aws_access_key_secret_scope": "aws",
+    "aws_access_key_secret_key": "access_key",
+    "aws_secret_key_secret_scope": "aws",
+    "aws_secret_key_secret_key": "secret_key"
+  }
+}

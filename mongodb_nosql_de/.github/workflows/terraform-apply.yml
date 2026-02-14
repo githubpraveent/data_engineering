@@ -1,0 +1,151 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+
+jobs:
+  terraform-apply-staging:
+    name: Terraform Apply - Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    concurrency:
+      group: terraform-apply-staging
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: terraform/environments/staging
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=mongodb-pipeline/staging/terraform.tfstate" \
+            -backend-config="region=us-east-1"
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/staging
+        env:
+          TF_VAR_mongodb_atlas_api_key: ${{ secrets.MONGODB_ATLAS_API_KEY }}
+          TF_VAR_mongodb_atlas_api_secret: ${{ secrets.MONGODB_ATLAS_API_SECRET }}
+          TF_VAR_mongodb_atlas_org_id: ${{ secrets.MONGODB_ATLAS_ORG_ID }}
+          TF_VAR_key_pair_name: ${{ secrets.AWS_KEY_PAIR_NAME }}
+        run: |
+          if [ "${{ github.event.inputs.action }}" == "destroy" ]; then
+            terraform destroy -auto-approve -var-file=terraform.tfvars
+          else
+            terraform apply -auto-approve -var-file=terraform.tfvars
+          fi
+
+      - name: Get Terraform Outputs
+        id: terraform-outputs
+        working-directory: terraform/environments/staging
+        run: |
+          echo "mongodb_uri=$(terraform output -raw mongodb_connection_string)" >> $GITHUB_OUTPUT
+          echo "instance_ips=$(terraform output -json ec2_instance_ips)" >> $GITHUB_OUTPUT
+
+      - name: Save outputs to environment
+        run: |
+          echo "MONGODB_URI=${{ steps.terraform-outputs.outputs.mongodb_uri }}" >> $GITHUB_ENV
+
+  terraform-apply-production:
+    name: Terraform Apply - Production
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+      url: https://console.aws.amazon.com
+    if: |
+      github.event_name == 'workflow_dispatch' && 
+      github.event.inputs.environment == 'production'
+    concurrency:
+      group: terraform-apply-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: terraform/environments/production
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=mongodb-pipeline/production/terraform.tfstate" \
+            -backend-config="region=us-east-1"
+
+      - name: Terraform Plan
+        working-directory: terraform/environments/production
+        env:
+          TF_VAR_mongodb_atlas_api_key: ${{ secrets.MONGODB_ATLAS_API_KEY }}
+          TF_VAR_mongodb_atlas_api_secret: ${{ secrets.MONGODB_ATLAS_API_SECRET }}
+          TF_VAR_mongodb_atlas_org_id: ${{ secrets.MONGODB_ATLAS_ORG_ID }}
+          TF_VAR_key_pair_name: ${{ secrets.AWS_KEY_PAIR_NAME }}
+        run: terraform plan -out=tfplan -var-file=terraform.tfvars
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/production
+        env:
+          TF_VAR_mongodb_atlas_api_key: ${{ secrets.MONGODB_ATLAS_API_KEY }}
+          TF_VAR_mongodb_atlas_api_secret: ${{ secrets.MONGODB_ATLAS_API_SECRET }}
+          TF_VAR_mongodb_atlas_org_id: ${{ secrets.MONGODB_ATLAS_ORG_ID }}
+          TF_VAR_key_pair_name: ${{ secrets.AWS_KEY_PAIR_NAME }}
+        run: |
+          if [ "${{ github.event.inputs.action }}" == "destroy" ]; then
+            terraform destroy -auto-approve -var-file=terraform.tfvars
+          else
+            terraform apply tfplan
+          fi
+
+      - name: Get Terraform Outputs
+        id: terraform-outputs
+        working-directory: terraform/environments/production
+        run: |
+          echo "mongodb_uri=$(terraform output -raw mongodb_connection_string)" >> $GITHUB_OUTPUT
+          echo "instance_ips=$(terraform output -json ec2_instance_ips)" >> $GITHUB_OUTPUT

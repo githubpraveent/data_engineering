@@ -1,0 +1,7 @@
+---
+# Default variables for pipeline-service role
+
+pipeline_user: "pipeline"
+pipeline_home: "/opt/data-pipeline"
+service_account_key_path: ""
+setup_logrotate: true

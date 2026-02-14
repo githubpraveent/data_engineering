@@ -1,0 +1,13 @@
+/var/log/pipeline/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 {{ app_user }} {{ app_group }}
+    sharedscripts
+    postrotate
+        /bin/systemctl reload pipeline > /dev/null 2>&1 || true
+    endscript
+}

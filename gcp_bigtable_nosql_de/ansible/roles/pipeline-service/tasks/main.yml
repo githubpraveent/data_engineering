@@ -1,0 +1,43 @@
+---
+# Pipeline service deployment role
+# Sets up the data pipeline as a system service
+
+- name: Create pipeline user
+  user:
+    name: "{{ pipeline_user }}"
+    system: yes
+    shell: /bin/bash
+    home: "{{ pipeline_home }}"
+    create_home: yes
+    comment: "Data Pipeline Service User"
+
+- name: Create pipeline directory structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ pipeline_user }}"
+    group: "{{ pipeline_user }}"
+    mode: '0755'
+  loop:
+    - "{{ pipeline_home }}"
+    - "{{ pipeline_home }}/logs"
+    - "{{ pipeline_home }}/data"
+    - "{{ pipeline_home }}/config"
+
+- name: Set up service account key file
+  copy:
+    src: "{{ service_account_key_path }}"
+    dest: "{{ pipeline_home }}/service-account.json"
+    owner: "{{ pipeline_user }}"
+    group: "{{ pipeline_user }}"
+    mode: '0600'
+  when: service_account_key_path is defined
+  become: yes
+
+- name: Create log rotation configuration
+  template:
+    src: pipeline-logrotate.j2
+    dest: /etc/logrotate.d/data-pipeline
+    mode: '0644'
+  become: yes
+  when: setup_logrotate | default(true)

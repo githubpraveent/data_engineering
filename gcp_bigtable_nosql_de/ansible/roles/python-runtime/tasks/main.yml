@@ -1,0 +1,43 @@
+---
+# Python runtime installation role
+# Installs Python and required packages
+
+- name: Check if Python 3 is installed
+  command: python3 --version
+  register: python3_check
+  changed_when: false
+  failed_when: false
+
+- name: Ensure Python 3 is installed
+  package:
+    name: python3
+    state: present
+  when: python3_check.rc != 0
+  become: yes
+
+- name: Ensure pip is installed
+  package:
+    name: python3-pip
+    state: present
+  become: yes
+
+- name: Upgrade pip
+  pip:
+    name: pip
+    state: latest
+    executable: pip3
+
+- name: Install required Python packages
+  pip:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ pip_packages | default([]) }}"
+  become: no
+
+- name: Verify pip packages installation
+  pip:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ pip_packages | default([]) }}"
+  register: pip_packages_result
+  changed_when: false

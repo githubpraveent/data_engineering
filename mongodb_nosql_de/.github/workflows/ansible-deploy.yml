@@ -1,0 +1,150 @@
+name: Ansible Deployment
+
+on:
+  workflow_run:
+    workflows: ["Terraform Apply"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    if: |
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Ansible
+        run: pip install ansible==8.0.0 boto3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Get EC2 Instance IPs from Terraform
+        id: get-instances
+        working-directory: terraform/environments/staging
+        run: |
+          terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=mongodb-pipeline/staging/terraform.tfstate" \
+            -backend-config="region=us-east-1" -input=false
+          INSTANCE_IPS=$(terraform output -json ec2_instance_ips | jq -r '.[]')
+          echo "instances=$INSTANCE_IPS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ steps.get-instances.outputs.instances }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run Ansible Playbook
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
+          MONGODB_STAGING_URI: ${{ secrets.MONGODB_STAGING_URI }}
+          STAGING_PIPELINE_IP_1: ${{ secrets.STAGING_PIPELINE_IP_1 }}
+          STAGING_PIPELINE_IP_2: ${{ secrets.STAGING_PIPELINE_IP_2 }}
+        run: |
+          ansible-playbook -i inventory/hosts.yml playbooks/site.yml \
+            -e "mongodb_staging_uri=${{ secrets.MONGODB_STAGING_URI }}" \
+            -e "staging_pipeline_ip_1=${{ secrets.STAGING_PIPELINE_IP_1 }}" \
+            -e "staging_pipeline_ip_2=${{ secrets.STAGING_PIPELINE_IP_2 }}"
+
+      - name: Deploy Application Code
+        working-directory: ansible
+        env:
+          DEPLOYMENT_VERSION: ${{ github.sha }}
+        run: |
+          ansible-playbook -i inventory/hosts.yml playbooks/deploy-pipeline.yml \
+            -e "mongodb_staging_uri=${{ secrets.MONGODB_STAGING_URI }}" \
+            -e "staging_pipeline_ip_1=${{ secrets.STAGING_PIPELINE_IP_1 }}" \
+            -e "staging_pipeline_ip_2=${{ secrets.STAGING_PIPELINE_IP_2 }}"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+      url: https://console.aws.amazon.com
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Ansible
+        run: pip install ansible==8.0.0 boto3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Get EC2 Instance IPs from Terraform
+        id: get-instances
+        working-directory: terraform/environments/production
+        run: |
+          terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=mongodb-pipeline/production/terraform.tfstate" \
+            -backend-config="region=us-east-1" -input=false
+          INSTANCE_IPS=$(terraform output -json ec2_instance_ips | jq -r '.[]')
+          echo "instances=$INSTANCE_IPS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ steps.get-instances.outputs.instances }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run Ansible Playbook
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: False
+        run: |
+          ansible-playbook -i inventory/hosts.yml playbooks/site.yml \
+            -e "mongodb_production_uri=${{ secrets.MONGODB_PRODUCTION_URI }}" \
+            -e "prod_pipeline_ip_1=${{ secrets.PROD_PIPELINE_IP_1 }}" \
+            -e "prod_pipeline_ip_2=${{ secrets.PROD_PIPELINE_IP_2 }}"
+
+      - name: Deploy Application Code
+        working-directory: ansible
+        env:
+          DEPLOYMENT_VERSION: ${{ github.sha }}
+        run: |
+          ansible-playbook -i inventory/hosts.yml playbooks/deploy-pipeline.yml \
+            -e "mongodb_production_uri=${{ secrets.MONGODB_PRODUCTION_URI }}" \
+            -e "prod_pipeline_ip_1=${{ secrets.PROD_PIPELINE_IP_1 }}" \
+            -e "prod_pipeline_ip_2=${{ secrets.PROD_PIPELINE_IP_2 }}"
